@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Login - AI Task Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-sign-in-alt me-2"></i>Login</h4>
+            </div>
+            <div class="card-body">
+                <div id="login-error" class="alert alert-danger d-none" role="alert">
+                    Invalid username or password. Please try again.
+                </div>
+                <form id="login-form">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary" id="login-button">
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="login-spinner"></span>
+                            <span id="login-text">Login</span>
+                        </button>
+                    </div>
+                </form>
+                <div class="mt-3 text-center">
+                    <p class="text-muted">Demo Accounts:</p>
+                    <p><strong>Mentor:</strong> admin / admin123</p>
+                    <p><strong>User:</strong> user / user123</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        $('#login-form').on('submit', function(e) {
+            e.preventDefault();
+            
+            // Show loading spinner
+            $('#login-button').attr('disabled', true);
+            $('#login-spinner').removeClass('d-none');
+            $('#login-text').text('Logging in...');
+            $('#login-error').addClass('d-none');
+            
+            const username = $('#username').val();
+            const password = $('#password').val();
+            
+            $.ajax({
+                url: '/login',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    username: username,
+                    password: password
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        // Redirect to dashboard
+                        window.location.href = '/';
+                    } else {
+                        // Show error message
+                        $('#login-error').removeClass('d-none');
+                        $('#login-button').attr('disabled', false);
+                        $('#login-spinner').addClass('d-none');
+                        $('#login-text').text('Login');
+                    }
+                },
+                error: function() {
+                    // Show error message
+                    $('#login-error').removeClass('d-none');
+                    $('#login-button').attr('disabled', false);
+                    $('#login-spinner').addClass('d-none');
+                    $('#login-text').text('Login');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %} 

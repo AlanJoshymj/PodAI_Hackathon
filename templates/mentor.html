@@ -1,0 +1,946 @@
+{% extends "base.html" %}
+
+{% block title %}Mentor Dashboard - AI Task Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2><i class="fas fa-chalkboard-teacher me-2"></i>Mentor Dashboard</h2>
+        <p class="text-muted">Monitor user progress, assign tasks, and provide feedback.</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#downloadDataModal">
+            <i class="fas fa-download me-1"></i> Download Data
+        </button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignTaskModal">
+            <i class="fas fa-plus me-1"></i> Assign New Task
+        </button>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <h5 class="card-title">Total Tasks</h5>
+                <h2 id="total-tasks-count">0</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <h5 class="card-title">Completed Tasks</h5>
+                <h2 id="completed-tasks-count">0</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <h5 class="card-title">Pending Tasks</h5>
+                <h2 id="pending-tasks-count">0</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Task Status Overview -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Task Status Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 offset-md-3">
+                        <div style="height: 250px;">
+                            <canvas id="taskStatusChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5 class="mb-0">All User Tasks</h5>
+                    </div>
+                    <div class="col-md-4">
+                        <select id="user-filter" class="form-select form-select-sm">
+                            <option value="">All Users</option>
+                            <!-- Users will be loaded here -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Assigned To</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Deadline</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="all-tasks-table-body">
+                            <!-- Tasks will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="no-tasks-message" class="text-center py-4 d-none">
+                    <p class="text-muted">No tasks found.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Task Modal -->
+<div class="modal fade" id="assignTaskModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Assign New Task</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="assign-task-form">
+                    <div class="mb-3">
+                        <label for="assign-user" class="form-label">Assign To</label>
+                        <select class="form-select" id="assign-user" required>
+                            <!-- Users will be loaded here -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="assign-title" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="assign-title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="assign-description" class="form-label">Description</label>
+                        <textarea class="form-control" id="assign-description" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="assign-priority" class="form-label">Priority</label>
+                                <select class="form-select" id="assign-priority">
+                                    <option value="High">High</option>
+                                    <option value="Medium" selected>Medium</option>
+                                    <option value="Low">Low</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="assign-status" class="form-label">Status</label>
+                                <select class="form-select" id="assign-status">
+                                    <option value="Not Started" selected>Not Started</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="assign-deadline" class="form-label">Deadline</label>
+                                <input type="date" class="form-control" id="assign-deadline">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-assign-btn">Assign Task</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Task Feedback Modal -->
+<div class="modal fade" id="taskFeedbackModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-comment-dots me-2"></i>Provide Feedback</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h5 id="feedback-task-title"></h5>
+                    <p class="text-muted" id="feedback-task-details"></p>
+                </div>
+                
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">Previous Feedback</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="feedback-list">
+                            <!-- Feedback will be loaded here -->
+                        </div>
+                        <div id="no-feedback-message" class="text-center py-2">
+                            <p class="text-muted">No feedback yet.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <form id="mentor-feedback-form">
+                    <input type="hidden" id="feedback-task-id">
+                    <div class="mb-3">
+                        <label for="feedback-comment" class="form-label">Your Feedback</label>
+                        <textarea class="form-control" id="feedback-comment" rows="3" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-feedback-btn">Submit Feedback</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Task Modal -->
+<div class="modal fade" id="editTaskModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Edit Task</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-task-form">
+                    <input type="hidden" id="edit-task-id">
+                    <div class="mb-3">
+                        <label for="edit-task-title" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="edit-task-title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-task-description" class="form-label">Description</label>
+                        <textarea class="form-control" id="edit-task-description" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="edit-task-priority" class="form-label">Priority</label>
+                                <select class="form-select" id="edit-task-priority">
+                                    <option value="High">High</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="Low">Low</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="edit-task-status" class="form-label">Status</label>
+                                <select class="form-select" id="edit-task-status">
+                                    <option value="Not Started">Not Started</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="edit-task-deadline" class="form-label">Deadline</label>
+                                <input type="date" class="form-control" id="edit-task-deadline">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="update-task-btn">Update Task</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Download Data Modal -->
+<div class="modal fade" id="downloadDataModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-download me-2"></i>Download Task Data</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="download-data-form">
+                    <div class="mb-3">
+                        <label for="user-download-filter" class="form-label">User Filter</label>
+                        <select id="user-download-filter" class="form-select mb-3">
+                            <option value="">All Users</option>
+                            <!-- Users will be loaded here -->
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Date Range Filter</label>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="dateRangeFilter" id="last10Days" value="last10Days" checked>
+                            <label class="form-check-label" for="last10Days">
+                                Last 10 Days
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="dateRangeFilter" id="last1Month" value="last1Month">
+                            <label class="form-check-label" for="last1Month">
+                                Last 1 Month
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="dateRangeFilter" id="customDateRange" value="customDateRange">
+                            <label class="form-check-label" for="customDateRange">
+                                Custom Date Range
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="dateRangeFilter" id="noDeadline" value="noDeadline">
+                            <label class="form-check-label" for="noDeadline">
+                                No Deadline
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="customDateFields" class="row mb-3" style="display: none;">
+                        <div class="col-md-6">
+                            <label for="startDate" class="form-label">From Date</label>
+                            <input type="date" class="form-control" id="startDate">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="endDate" class="form-label">To Date</label>
+                            <input type="date" class="form-control" id="endDate">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Export Format</label>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="exportFormat" id="formatExcel" value="excel" checked>
+                            <label class="form-check-label" for="formatExcel">
+                                Excel (.xlsx)
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="exportFormat" id="formatPDF" value="pdf">
+                            <label class="form-check-label" for="formatPDF">
+                                PDF (.pdf)
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="download-data-btn">
+                    <i class="fas fa-download me-1"></i> Download
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Global variables
+    let taskStatusChart;
+    let allTasks = [];
+    
+    $(document).ready(function() {
+        // Load users and tasks on page load
+        loadUsers().then(() => {
+            loadTasks();
+        });
+        
+        // Load all tasks
+        loadAllTasks();
+        
+        // Load users for filters and assignment
+        loadUsers();
+        
+        // User filter change
+        $('#user-filter').on('change', function() {
+            loadAllTasks();
+        });
+        
+        // Assign task
+        $('#save-assign-btn').on('click', function() {
+            const userId = $('#assign-user').val();
+            const title = $('#assign-title').val();
+            const description = $('#assign-description').val();
+            const priority = $('#assign-priority').val();
+            const status = $('#assign-status').val();
+            const deadline = $('#assign-deadline').val();
+            
+            if (!userId || !title) {
+                alert('Please select a user and enter a task title');
+                return;
+            }
+            
+            // First create the task
+            $.ajax({
+                url: '/api/tasks',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    title: title,
+                    description: description,
+                    priority: priority,
+                    status: status,
+                    deadline: deadline || null
+                }),
+                success: function(response) {
+                    // Then explicitly assign the task to the user
+                    $.ajax({
+                        url: `/api/tasks/${response.task_id}/assign`,
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            user_id: userId
+                        }),
+                        success: function(assignResponse) {
+                            $('#assignTaskModal').modal('hide');
+                            $('#assign-task-form')[0].reset();
+                            loadAllTasks();
+                            
+                            let successMessage = 'Task assigned successfully!';
+                            if (assignResponse.email_sent) {
+                                successMessage += ' Email notification sent.';
+                            }
+                            alert(successMessage);
+                        },
+                        error: function(error) {
+                            alert('Error assigning task: ' + (error.responseJSON ? error.responseJSON.error : 'Unknown error'));
+                        }
+                    });
+                },
+                error: function(error) {
+                    alert('Error creating task: ' + error.responseJSON.error);
+                }
+            });
+        });
+        
+        // Save feedback
+        $('#save-feedback-btn').on('click', function() {
+            const taskId = $('#feedback-task-id').val();
+            const comment = $('#feedback-comment').val();
+            
+            if (!comment) {
+                alert('Please enter your feedback');
+                return;
+            }
+            
+            $.ajax({
+                url: `/api/tasks/${taskId}/feedback`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    comment: comment
+                }),
+                success: function(response) {
+                    // Clear the feedback form
+                    $('#feedback-comment').val('');
+                    
+                    // Reload feedback list
+                    loadFeedback(taskId);
+                    
+                    // Show success message
+                    alert('Feedback submitted successfully');
+                    
+                    // Hide the modal
+                    $('#taskFeedbackModal').modal('hide');
+                    
+                    // Reload tasks
+                    loadTasks();
+                },
+                error: function(error) {
+                    alert('Error adding feedback: ' + error.responseJSON.error);
+                }
+            });
+        });
+        
+        // Show/hide custom date fields based on selection
+        $('input[name="dateRangeFilter"]').on('change', function() {
+            if ($(this).val() === 'customDateRange') {
+                $('#customDateFields').show();
+            } else {
+                $('#customDateFields').hide();
+            }
+        });
+        
+        // Populate user filter in download modal
+        loadUsers().then(function(users) {
+            const userDownloadFilter = $('#user-download-filter');
+            userDownloadFilter.empty();
+            userDownloadFilter.append('<option value="">All Users</option>');
+            
+            users.forEach(function(user) {
+                userDownloadFilter.append(`<option value="${user.id}">${user.username} (${user.role})</option>`);
+            });
+        });
+        
+        // Download data button click
+        $('#download-data-btn').on('click', function() {
+            const userId = $('#user-download-filter').val();
+            const dateRangeFilter = $('input[name="dateRangeFilter"]:checked').val();
+            const exportFormat = $('input[name="exportFormat"]:checked').val();
+            
+            let params = {
+                filter: dateRangeFilter,
+                format: exportFormat
+            };
+            
+            // Add user filter if selected
+            if (userId) {
+                params.userId = userId;
+            }
+            
+            // Add custom date range if selected
+            if (dateRangeFilter === 'customDateRange') {
+                const startDate = $('#startDate').val();
+                const endDate = $('#endDate').val();
+                
+                if (!startDate || !endDate) {
+                    alert('Please select both start and end dates for custom range');
+                    return;
+                }
+                
+                params.startDate = startDate;
+                params.endDate = endDate;
+            }
+            
+            // Build query string
+            const queryString = Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            
+            // Create download URL
+            const downloadUrl = `/api/export/tasks?${queryString}`;
+            
+            // Trigger download
+            window.location.href = downloadUrl;
+            
+            // Close modal
+            $('#downloadDataModal').modal('hide');
+        });
+    });
+    
+    function loadAllTasks() {
+        $.ajax({
+            url: '/api/tasks',
+            type: 'GET',
+            success: function(tasks) {
+                allTasks = tasks; // Store all tasks
+                
+                // Update task counts
+                updateTaskCounts(tasks);
+                
+                // Update the chart with the tasks data
+                updateTaskStatusChart(tasks);
+                
+                // Populate the tasks table
+                populateTasksTable(tasks);
+            },
+            error: function(error) {
+                console.error('Error loading tasks:', error);
+                $('#tasks-table-body').html(`
+                    <tr>
+                        <td colspan="6" class="text-center">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Error loading tasks. Please refresh the page.
+                            </div>
+                        </td>
+                    </tr>
+                `);
+                
+                // Initialize empty chart on error
+                updateTaskStatusChart([], true);
+            }
+        });
+    }
+    
+    function loadUsers() {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: '/api/users',
+                type: 'GET',
+                success: function(users) {
+                    const userFilter = $('#user-filter');
+                    const assignUser = $('#assign-user');
+                    
+                    userFilter.empty();
+                    userFilter.append('<option value="">All Users</option>');
+                    
+                    assignUser.empty();
+                    
+                    users.forEach(function(user) {
+                        userFilter.append(`<option value="${user.id}">${user.username} (${user.role})</option>`);
+                        assignUser.append(`<option value="${user.id}">${user.username} (${user.role})</option>`);
+                    });
+                    
+                    // Add event listener for user filter change
+                    userFilter.on('change', function() {
+                        const userId = $(this).val();
+                        filterTasks(userId);
+                    });
+                    
+                    resolve(users);
+                },
+                error: function(error) {
+                    console.error('Error loading users:', error);
+                    
+                    // Fallback to hardcoded users for demo
+                    const users = [
+                        { id: 1, username: 'admin', role: 'Mentor' },
+                        { id: 2, username: 'user', role: 'User' }
+                    ];
+                    
+                    const userFilter = $('#user-filter');
+                    const assignUser = $('#assign-user');
+                    
+                    userFilter.empty();
+                    userFilter.append('<option value="">All Users</option>');
+                    
+                    assignUser.empty();
+                    
+                    users.forEach(function(user) {
+                        userFilter.append(`<option value="${user.id}">${user.username} (${user.role})</option>`);
+                        assignUser.append(`<option value="${user.id}">${user.username} (${user.role})</option>`);
+                    });
+                    
+                    // Add event listener for user filter change
+                    userFilter.on('change', function() {
+                        const userId = $(this).val();
+                        filterTasks(userId);
+                    });
+                    
+                    resolve(users);
+                }
+            });
+        });
+    }
+    
+    function filterTasks(userId) {
+        if (userId) {
+            // Filter tasks for specific user
+            const filteredTasks = allTasks.filter(task => task.user_id == userId);
+            populateTasksTable(filteredTasks);
+            updateTaskCounts(filteredTasks);
+            updateTaskStatusChart(filteredTasks);
+        } else {
+            // Show all tasks
+            populateTasksTable(allTasks);
+            updateTaskCounts(allTasks);
+            updateTaskStatusChart(allTasks);
+        }
+    }
+    
+    function showFeedbackModal(taskId) {
+        $.ajax({
+            url: `/api/tasks/${taskId}`,
+            type: 'GET',
+            success: function(task) {
+                $('#feedback-task-id').val(task.id);
+                $('#feedback-task-title').text(task.title);
+                
+                let priorityText = task.priority;
+                let statusText = task.status;
+                let deadlineText = task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No deadline';
+                
+                $('#feedback-task-details').html(`
+                    <strong>Priority:</strong> ${priorityText} | 
+                    <strong>Status:</strong> ${statusText} | 
+                    <strong>Deadline:</strong> ${deadlineText}
+                `);
+                
+                loadFeedback(task.id);
+                
+                $('#taskFeedbackModal').modal('show');
+            },
+            error: function(error) {
+                console.error('Error loading task details:', error);
+            }
+        });
+    }
+    
+    function loadFeedback(taskId) {
+        $.ajax({
+            url: `/api/tasks/${taskId}/feedback`,
+            type: 'GET',
+            success: function(feedback) {
+                const feedbackList = $('#feedback-list');
+                feedbackList.empty();
+                
+                if (feedback.length === 0) {
+                    $('#no-feedback-message').show();
+                    return;
+                }
+                
+                $('#no-feedback-message').hide();
+                
+                feedback.forEach(function(item) {
+                    const date = new Date(item.created_at).toLocaleString();
+                    const feedbackItem = `
+                        <div class="card mb-2">
+                            <div class="card-body">
+                                <p class="mb-1">${item.comment}</p>
+                                <small class="text-muted">By ${item.username} on ${date}</small>
+                            </div>
+                        </div>
+                    `;
+                    
+                    feedbackList.append(feedbackItem);
+                });
+            },
+            error: function(error) {
+                console.error('Error loading feedback:', error);
+            }
+        });
+    }
+    
+    function populateTasksTable(tasks) {
+        const tableBody = $('#all-tasks-table-body');
+        tableBody.empty();
+        
+        if (tasks.length === 0) {
+            $('#no-tasks-message').removeClass('d-none');
+            return;
+        }
+        
+        $('#no-tasks-message').addClass('d-none');
+        
+        tasks.forEach(function(task) {
+            let priorityBadge = '';
+            if (task.priority === 'High') {
+                priorityBadge = '<span class="badge bg-danger">High</span>';
+            } else if (task.priority === 'Medium') {
+                priorityBadge = '<span class="badge bg-warning text-dark">Medium</span>';
+            } else {
+                priorityBadge = '<span class="badge bg-info text-dark">Low</span>';
+            }
+            
+            let statusBadge = '';
+            if (task.status === 'Not Started') {
+                statusBadge = '<span class="badge bg-secondary">Not Started</span>';
+            } else if (task.status === 'In Progress') {
+                statusBadge = '<span class="badge bg-primary">In Progress</span>';
+            } else {
+                statusBadge = '<span class="badge bg-success">Completed</span>';
+            }
+            
+            let deadlineDisplay = task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No deadline';
+            
+            const row = `
+                <tr>
+                    <td>${task.title}</td>
+                    <td>${task.assigned_to || 'Unassigned'}</td>
+                    <td>${priorityBadge}</td>
+                    <td>${statusBadge}</td>
+                    <td>${deadlineDisplay}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="showFeedbackModal(${task.id})">
+                            <i class="fas fa-comment-dots"></i>
+                        </button>
+                        <button class="btn btn-sm btn-primary edit-task-btn" data-id="${task.id}" onclick="loadTaskForEdit(${task.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            
+            tableBody.append(row);
+        });
+    }
+    
+    function updateTaskCounts(tasks) {
+        let totalCount = tasks.length;
+        let completedCount = 0;
+        
+        tasks.forEach(function(task) {
+            if (task.status === 'Completed') {
+                completedCount++;
+            }
+        });
+        
+        let pendingCount = totalCount - completedCount;
+        
+        $('#total-tasks-count').text(totalCount);
+        $('#completed-tasks-count').text(completedCount);
+        $('#pending-tasks-count').text(pendingCount);
+    }
+    
+    function loadTaskForEdit(taskId) {
+        $.ajax({
+            url: `/api/tasks/${taskId}`,
+            type: 'GET',
+            success: function(task) {
+                $('#edit-task-id').val(task.id);
+                $('#edit-task-title').val(task.title);
+                $('#edit-task-description').val(task.description || '');
+                $('#edit-task-priority').val(task.priority);
+                $('#edit-task-status').val(task.status);
+                $('#edit-task-deadline').val(task.deadline || '');
+                
+                $('#editTaskModal').modal('show');
+            },
+            error: function(error) {
+                console.error('Error loading task for edit:', error);
+                alert('Error loading task details. Please try again.');
+            }
+        });
+    }
+    
+    // Add event listener for update task button
+    $(document).ready(function() {
+        // ... existing code ...
+        
+        // Update task
+        $('#update-task-btn').on('click', function() {
+            const taskId = $('#edit-task-id').val();
+            const title = $('#edit-task-title').val();
+            const description = $('#edit-task-description').val();
+            const priority = $('#edit-task-priority').val();
+            const status = $('#edit-task-status').val();
+            const deadline = $('#edit-task-deadline').val();
+            
+            if (!title) {
+                alert('Please enter a task title');
+                return;
+            }
+            
+            $.ajax({
+                url: `/api/tasks/${taskId}`,
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    title: title,
+                    description: description,
+                    priority: priority,
+                    status: status,
+                    deadline: deadline || null
+                }),
+                success: function(response) {
+                    $('#editTaskModal').modal('hide');
+                    loadTasks();
+                },
+                error: function(error) {
+                    alert('Error updating task: ' + error.responseJSON.error);
+                }
+            });
+        });
+    });
+    
+    function loadTasks(userId = '') {
+        // ... existing code ...
+        
+        $.ajax({
+            url: url,
+            type: 'GET',
+            success: function(tasks) {
+                allTasks = tasks; // Store all tasks
+                
+                // Update task counts
+                updateTaskCounts(tasks);
+                
+                // Update the chart with the tasks data
+                updateTaskStatusChart(tasks);
+                
+                // ... existing code for rendering tasks ...
+            },
+            error: function(error) {
+                console.error('Error loading tasks:', error);
+                // ... existing error handling code ...
+                
+                // Initialize empty chart on error
+                updateTaskStatusChart([], true);
+            }
+        });
+    }
+    
+    function updateTaskStatusChart(tasks, isEmpty = false) {
+        // Count tasks by status
+        let notStartedCount = 0;
+        let inProgressCount = 0;
+        let completedCount = 0;
+        
+        if (!isEmpty) {
+            tasks.forEach(function(task) {
+                if (task.status === 'Not Started') {
+                    notStartedCount++;
+                } else if (task.status === 'In Progress') {
+                    inProgressCount++;
+                } else if (task.status === 'Completed') {
+                    completedCount++;
+                }
+            });
+        }
+        
+        // Prepare chart data
+        const data = {
+            labels: ['Not Started', 'In Progress', 'Completed'],
+            datasets: [{
+                data: [notStartedCount, inProgressCount, completedCount],
+                backgroundColor: ['#dc3545', '#0d6efd', '#198754'], // Red, Blue, Green
+                hoverBackgroundColor: ['#bb2d3b', '#0b5ed7', '#157347']
+            }]
+        };
+        
+        // Chart configuration
+        const config = {
+            type: 'pie',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 10
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                return `${label}: ${value} task(s)`;
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        
+        // Create or update chart
+        const ctx = document.getElementById('taskStatusChart').getContext('2d');
+        
+        if (taskStatusChart) {
+            // Update existing chart
+            taskStatusChart.data = data;
+            taskStatusChart.update();
+        } else {
+            // Create new chart
+            taskStatusChart = new Chart(ctx, config);
+        }
+    }
+</script>
+{% endblock %} 

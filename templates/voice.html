@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}Voice Task - AI Task Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2><i class="fas fa-microphone me-2"></i>Voice Task Creation</h2>
+        <p class="text-muted">Speak your task and let AI organize it for you. Click the microphone button and start speaking.</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-microphone me-2"></i>Record Your Task</h5>
+            </div>
+            <div class="card-body text-center py-5">
+                <div id="recording-status" class="mb-4">
+                    <p class="text-muted">Click the microphone to start recording</p>
+                </div>
+                
+                <button id="record-button" class="btn btn-lg btn-outline-primary rounded-circle p-4">
+                    <i class="fas fa-microphone fa-2x"></i>
+                </button>
+                
+                <div id="recording-time" class="mt-3 d-none">
+                    <span class="badge bg-danger p-2">Recording: <span id="timer">0:00</span></span>
+                </div>
+                
+                <div class="mt-4">
+                    <button id="stop-button" class="btn btn-danger d-none">
+                        <i class="fas fa-stop me-1"></i> Stop Recording
+                    </button>
+                </div>
+            </div>
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-info-circle me-1"></i> Max recording time: 60 seconds</span>
+                    <a href="/" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-robot me-2"></i>AI Task Processing</h5>
+            </div>
+            <div class="card-body">
+                <div id="processing-indicator" class="text-center py-4 d-none">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Processing your task...</p>
+                </div>
+                
+                <div id="result-container" class="d-none">
+                    <div class="mb-3">
+                        <h5>Transcription:</h5>
+                        <div class="border rounded p-3 bg-light">
+                            <p id="transcription-text"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h5>Task Details:</h5>
+                        <div class="card mb-2">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0" id="task-title"></h6>
+                                    <span class="badge" id="task-priority"></span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <p id="task-description"></p>
+                                
+                                <h6 class="mt-3 mb-2">Steps to Complete:</h6>
+                                <ul id="task-steps" class="list-group list-group-flush">
+                                </ul>
+                                
+                                <div class="mt-3" id="deadline-container">
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar me-1"></i> Deadline: <span id="task-deadline"></span>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button id="save-task-btn" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i> Save Task
+                        </button>
+                        <button id="discard-task-btn" class="btn btn-outline-danger">
+                            <i class="fas fa-trash me-1"></i> Discard
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="no-result-container" class="text-center py-4">
+                    <p class="text-muted">Your processed task will appear here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let mediaRecorder;
+    let audioChunks = [];
+    let startTime;
+    let timerInterval;
+    let taskData = null;
+    
+    $(document).ready(function() {
+        const recordButton = $('#record-button');
+        const stopButton = $('#stop-button');
+        const recordingStatus = $('#recording-status');
+        const recordingTime = $('#recording-time');
+        const timer = $('#timer');
+        
+        // Record button click
+        recordButton.on('click', function() {
+            startRecording();
+        });
+        
+        // Stop button click
+        stopButton.on('click', function() {
+            stopRecording();
+        });
+        
+        // Save task button click
+        $('#save-task-btn').on('click', function() {
+            if (!taskData) return;
+            
+            $.ajax({
+                url: '/api/tasks',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    title: taskData.title,
+                    description: taskData.description,
+                    priority: taskData.priority,
+                    status: 'Not Started',
+                    deadline: taskData.deadline
+                }),
+                success: function(response) {
+                    alert('Task saved successfully!');
+                    window.location.href = '/';
+                },
+                error: function(error) {
+                    alert('Error saving task: ' + error.responseJSON.error);
+                }
+            });
+        });
+        
+        // Discard task button click
+        $('#discard-task-btn').on('click', function() {
+            resetUI();
+        });
+    });
+    
+    function startRecording() {
+        $('#record-button').addClass('btn-danger').removeClass('btn-outline-primary');
+        $('#recording-status').html('<p class="text-danger">Recording in progress...</p>');
+        $('#stop-button').removeClass('d-none');
+        $('#recording-time').removeClass('d-none');
+        $('#result-container').addClass('d-none');
+        $('#no-result-container').addClass('d-none');
+        
+        // Reset timer
+        startTime = new Date();
+        updateTimer();
+        timerInterval = setInterval(updateTimer, 1000);
+        
+        // Request microphone access
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.addEventListener('dataavailable', event => {
+                    audioChunks.push(event.data);
+                });
+                
+                mediaRecorder.addEventListener('stop', () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    processAudio(audioBlob);
+                });
+                
+                mediaRecorder.start();
+                
+                // Auto stop after 60 seconds
+                setTimeout(() => {
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        stopRecording();
+                    }
+                }, 60000);
+            })
+            .catch(error => {
+                console.error('Error accessing microphone:', error);
+                alert('Error accessing microphone. Please make sure your microphone is connected and you have granted permission to use it.');
+                resetUI();
+            });
+    }
+    
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            
+            // Stop all tracks in the stream
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            
+            clearInterval(timerInterval);
+            
+            $('#record-button').removeClass('btn-danger').addClass('btn-outline-primary');
+            $('#recording-status').html('<p class="text-success">Recording completed!</p>');
+            $('#stop-button').addClass('d-none');
+            $('#processing-indicator').removeClass('d-none');
+        }
+    }
+    
+    function updateTimer() {
+        const now = new Date();
+        const diff = Math.floor((now - startTime) / 1000);
+        const minutes = Math.floor(diff / 60);
+        const seconds = diff % 60;
+        $('#timer').text(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    }
+    
+    function processAudio(audioBlob) {
+        const formData = new FormData();
+        formData.append('audio', audioBlob);
+        
+        $.ajax({
+            url: '/api/voice-task',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                $('#processing-indicator').addClass('d-none');
+                $('#result-container').removeClass('d-none');
+                
+                // Store task data
+                taskData = response.task_info;
+                
+                // Display transcription
+                $('#transcription-text').text(response.transcription);
+                
+                // Display task details
+                $('#task-title').text(taskData.title);
+                
+                // Set priority badge color
+                let priorityClass = 'bg-info';
+                if (taskData.priority === 'High') priorityClass = 'bg-danger';
+                if (taskData.priority === 'Medium') priorityClass = 'bg-warning text-dark';
+                $('#task-priority').text(taskData.priority).removeClass().addClass(`badge ${priorityClass}`);
+                
+                $('#task-description').text(taskData.description);
+                
+                // Display steps
+                const stepsList = $('#task-steps');
+                stepsList.empty();
+                
+                taskData.steps.forEach(step => {
+                    stepsList.append(`<li class="list-group-item">${step}</li>`);
+                });
+                
+                // Display deadline
+                if (taskData.deadline) {
+                    $('#task-deadline').text(new Date(taskData.deadline).toLocaleDateString());
+                    $('#deadline-container').show();
+                } else {
+                    $('#deadline-container').hide();
+                }
+            },
+            error: function(error) {
+                $('#processing-indicator').addClass('d-none');
+                $('#no-result-container').removeClass('d-none').html(`
+                    <div class="alert alert-danger">
+                        <p><i class="fas fa-exclamation-triangle me-2"></i>Error processing audio</p>
+                        <p class="mb-0">Please try again</p>
+                    </div>
+                `);
+                console.error('Error processing audio:', error);
+            }
+        });
+    }
+    
+    function resetUI() {
+        $('#record-button').removeClass('btn-danger').addClass('btn-outline-primary');
+        $('#recording-status').html('<p class="text-muted">Click the microphone to start recording</p>');
+        $('#stop-button').addClass('d-none');
+        $('#recording-time').addClass('d-none');
+        $('#processing-indicator').addClass('d-none');
+        $('#result-container').addClass('d-none');
+        $('#no-result-container').removeClass('d-none').html('<p class="text-muted">Your processed task will appear here</p>');
+        
+        clearInterval(timerInterval);
+        taskData = null;
+    }
+</script>
+{% endblock %} 
